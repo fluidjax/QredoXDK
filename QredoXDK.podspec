@@ -3,7 +3,6 @@ Pod::Spec.new do |s|
  s.version = '0.99.0'
  s.platform = :ios
  s.ios.deployment_target = '8.0'
- s.ios.vendored_frameworks = 'QredoXDK.framework'
  s.requires_arc = true
  
  s.summary      = 'Qredo SDK'
