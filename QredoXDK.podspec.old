@@ -12,5 +12,6 @@ Pod::Spec.new do |s|
    }
   s.homepage     = "http://qredo.com"
   s.license         = { :type => 'MIT', :file => 'LICENSE' }
+  s.ios.vendored_frameworks = "QredoXDK.framework"
   s.source       = { :git => "https://github.com/fluidjax/QredoXDK.git", :tag => "0.99.0" }
 end
