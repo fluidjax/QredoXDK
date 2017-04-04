@@ -5,7 +5,7 @@
 #import "QredoTypes.h"
 
 /** Type definition for `QredoRendezvousHighWatermark`  */
-typedef uint64_t QredoRendezvousHighWatermark;
+typedef uint64_t   QredoRendezvousHighWatermark;
 
 /** A constant used to specify the start of the Rendezvous. Used when enumerating Conversation messages  */
 extern const QredoRendezvousHighWatermark QredoRendezvousHighWatermarkOrigin;
@@ -21,7 +21,7 @@ extern NSString *const kQredoRendezvousVaultItemLabelAuthenticationType;
  
  @see Creating a Rendezvous: [Objective-C](https://docs.qredo.com/ios/objective-c/programming_guide/html/rendezvous/creating_a_rendezvous.html),
  [Swift](https://docs.qredo.com/ios/swift/programming_guide/html/rendezvous/creating_a_rendezvous.html)
-
+ 
  */
 
 
@@ -44,20 +44,20 @@ extern NSString *const kQredoRendezvousVaultItemLabelAuthenticationType;
 /**
  Invoked when this Rendezvous is responded to
  
- @param conversation The Rendezvous being responded to
- @param message The Conversation created by Qredo from the Rendezvous
+ @param rendezvous The Rendezvous being responded to
+ @param conversation The Conversation created by Qredo from the Rendezvous
  
  @note this method must be implemented
  */
--(void)qredoRendezvous:(QredoRendezvous*)rendezvous
+-(void)qredoRendezvous:(QredoRendezvous *)rendezvous
      didReceiveReponse:(QredoConversation *)conversation;
 
 @end
 
-/** Used to retrieve, activate and deactivate a particular Rendezvous. 
+/** Used to retrieve, activate and deactivate a particular Rendezvous.
  
  Pass this ref to [fetchRendezvousWithRef](QredoClient.html#/c:objc(cs)QredoClient(im)fetchRendezvousWithRef:completionHandler:), [activateRendezvousWithRef](QredoClient.html#/c:objc(cs)QredoClient(im)activateRendezvousWithRef:duration:completionHandler:) and [deactivateRendezvousWithRef](QredoClient.html#/c:objc(cs)QredoClient(im)deactivateRendezvousWithRef:completionHandler:)
-
+ 
  Stored in the `QredoRendezvousMetadata`
  */
 
@@ -66,26 +66,30 @@ extern NSString *const kQredoRendezvousVaultItemLabelAuthenticationType;
 @end
 
 
-/** Contains information about a previously created Rendezvous. 
+/** Contains information about a previously created Rendezvous.
  Used to retrieve the `QredoRendezvousRef`
  
-  `QredoRendezvousMetadata` objects are returned by [enumerateRendezvousWithBlock:completionHandler](QredoClient.html#/c:objc(cs)QredoClient(im)enumerateRendezvousWithBlock:completionHandler:)
+ `QredoRendezvousMetadata` objects are returned by [enumerateRendezvousWithBlock:completionHandler](QredoClient.html#/c:objc(cs)QredoClient(im)enumerateRendezvousWithBlock:completionHandler:)
  
  Other Rendezvous information can be accessed from the `QredoRendezvous`
-*/
+ */
 
 @interface QredoRendezvousMetadata :NSObject
 /** Use this ref to retrieve, activate or deactivate a Rendezvous */
 @property (readonly) QredoRendezvousRef *rendezvousRef;
 
 /** The Rendezvous tag */
-@property (readonly, copy) NSString *tag;
+@property (readonly,copy) NSString *tag;
+
+/** User dictionary of key/value pairs associated with a Rendezvous */
+@property (readonly) NSDictionary *summaryValues;
+
 @end
 
 
 
-/** 
- Represents a Rendezvous. 
+/**
+ Represents a Rendezvous.
  Created with [createAnonymousRendezvousWithTagType](QredoClient.html#/c:objc(cs)QredoClient(im)createAnonymousRendezvousWithTagType:completionHandler:)
  */
 
@@ -99,7 +103,7 @@ extern NSString *const kQredoRendezvousVaultItemLabelAuthenticationType;
 
 /** The duration in seconds after which the Rendezvous will expire. Expired Rendezvous can no longer be responded to.
  To activate an expired Rendezvous call [activateRendezvousWithRef](QredoClient.html#/c:objc(cs)QredoClient(im)activateRendezvousWithRef:duration:completionHandler:)
-*/
+ */
 @property (readonly) long duration;
 
 /** Set to YES if the Rendezvous accepts multiple responses, otherwise only one response will be accepted before the Rendezvous expires */
@@ -111,9 +115,12 @@ extern NSString *const kQredoRendezvousVaultItemLabelAuthenticationType;
 /** The Rendezvous tag */
 @property (readonly) NSString *tag;
 
+
+
+
 /** Used to store the mark to search from when enumerating Conversations created for this Rendezvous
  Pass this as a parameter to [enumerateConversationsWithBlock](#/c:objc(cs)QredoRendezvous(im)enumerateConversationsWithBlock:completionHandler:
-) */
+ ) */
 
 @property (readonly) QredoRendezvousHighWatermark highWatermark;
 
@@ -131,7 +138,7 @@ extern NSString *const kQredoRendezvousVaultItemLabelAuthenticationType;
 /** Resets the highwatermark so that the next enumeration starts from the first Conversation created from this Rendezvous */
 -(void)resetHighWatermark;
 
-
+/* HEADER GOES HERE */
 #pragma mark - Listening for responses
 
 /**
@@ -175,7 +182,7 @@ extern NSString *const kQredoRendezvousVaultItemLabelAuthenticationType;
 
 
 
--(void)enumerateConversationsWithBlock:(void (^)(QredoConversationMetadata *conversationMetadata, BOOL *stop))block
+-(void)enumerateConversationsWithBlock:(void (^)(QredoConversationMetadata *conversationMetadata,BOOL *stop))block
                      completionHandler:(void (^)(NSError *error))completionHandler;
 
 
@@ -183,9 +190,21 @@ extern NSString *const kQredoRendezvousVaultItemLabelAuthenticationType;
 
 /** Deletes a Rendezvous. Not yet implemented.
  Use `deactivateRendezvous`
- @see [Deactivating a Rendezvous](https://docs.qredo.com/ios/objective-c/programming_guide/html/rendezvous/activating_and_deactivating_rendezvous.html)
+ @see Deactivating a Rendezvous [Objective-C](https://docs.qredo.com/ios/objective-c/programming_guide/html/rendezvous/updating_rendezvous.html#deactivate), [Swift](https://docs.qredo.com/ios/swift/programming_guide/html/rendezvous/updating_rendezvous.html#deactivate)
  */
 -(void)deleteWithCompletionHandler:(void (^)(NSError *error))completionHandler;
 
+
+
+/**
+ 
+ Updates the summaryValues for this Rendezvous
+ 
+ @see Updating Rendezvous metadata: [Objective-C](https://docs.qredo.com/ios/objective-c/programming_guide/html/rendezvous/updating_rendezvous.html#update), [Swift](https://docs.qredo.com/ios/swift/programming_guide/html/rendezvous/updating_rendezvous.html#update)
+ 
+ @param summaryValues A dictionary of key/value pairs. This will replace any existing summaryValues
+ @param completionHandler will be called if an error occurs, such as when there is a problem connecting to the server. error will be no nil.
+ */
+-(void)updateRendezvousWithSummaryValues:(NSDictionary *)summaryValues completionHandler:(void (^)(NSError *error))completionHandler;
 
 @end

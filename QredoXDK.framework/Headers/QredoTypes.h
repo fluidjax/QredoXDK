@@ -1,7 +1,4 @@
-/*
- *  Copyright (c) 2011-2016 Qredo Ltd.  Strictly confidential.  All rights reserved.
- */
-
+/* HEADER GOES HERE */
 #import <Foundation/Foundation.h>
 
 /** The class that `QredoRendezvousRef`and `QredoConversationRef` derive from
@@ -10,10 +7,18 @@
 @interface QredoObjectRef :NSObject
 
 /** Used internally */
--(instancetype)initWithData:(NSData *)data;
+
+/** Used internally */
+-(nullable instancetype)initWithData:(NSData* _Nonnull)data;
+-(nullable NSString*)serializedString;
+-(nullable instancetype)initWithSerializedString:(NSString* _Nonnull)string;
+
+
+-(BOOL)isEqual:(nullable id)object;
+- (nullable NSData *)dataUsingEncoding:(NSStringEncoding)encoding;
+
+
 
 /** Developers should not rely on the contents of this property */
-@property (readonly) NSData *data;
-
+@property (readonly) NSData * _Nonnull data;
 @end
-

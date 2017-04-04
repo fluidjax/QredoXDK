@@ -1,9 +1,6 @@
-/*
- *  Copyright (c) 2011-2016 Qredo Ltd.  Strictly confidential.  All rights reserved.
- */
-
+/* HEADER GOES HERE */
 #import <Foundation/Foundation.h>
-
+#import "NSDictionary+QUIDSerialization.h"
 #import "QredoConversation.h"
 #import "QredoConversationMessage.h"
 #import "QredoErrorCodes.h"
@@ -15,10 +12,35 @@
 #import <CoreData/CoreData.h>
 #import "QredoUtils.h"
 #import "QredoIndexSummaryValues.h"
+#import "QredoPushMessage.h"
 
 @class QredoClient;
 @class QredoRendezvousMetadata;
 @class QredoCertificate;
+
+
+typedef NS_ENUM (NSUInteger,QredoClientOptionsTransportType) {
+    QredoClientOptionsTransportTypeHTTP,
+    QredoClientOptionsTransportTypeWebSockets,
+};
+
+
+@interface QredoClientOptions :NSObject <NSCoding>
+@property (copy) NSString *serverURL;
+@property QredoClientOptionsTransportType transportType;
+@property BOOL resetData;
+@property BOOL disableMetadataIndex;
+@property (copy) NSData *pushToken;
+@property (copy) NSString *appGroup;
+@property (copy) NSString *keyChainGroup;
+@property BOOL useHTTP;
+
+-(instancetype)init;        //this calls initLive
+-(instancetype)initLive;
+-(instancetype)initDev;
+-(instancetype)initTest;
+
+@end
 
 
 /** The security level used for a Rendezvous tag created with [createAnonymousRendezvousWithTagType](../Classes/QredoClient.html#/c:objc(cs)QredoClient(im)createAnonymousRendezvousWithTagType:completionHandler:)
@@ -30,13 +52,12 @@
 /*
  Generated TAG lengths - use to define the key length when creating a rendezvous
  */
-typedef NS_ENUM(NSUInteger, QredoSecurityLevel) {
-    
+typedef NS_ENUM (NSUInteger,QredoSecurityLevel) {
     /**  6 bits tags that are represented by a 12 character hex string */
-    QREDO_MEDIUM_SECURITY=6,
-   
+    QREDO_MEDIUM_SECURITY = 6,
+    
     /**  32 bit tags that are represented by a 64 character hex string */
-    QREDO_HIGH_SECURITY=32
+    QREDO_HIGH_SECURITY = 32
 };
 
 
@@ -48,6 +69,8 @@ typedef NS_ENUM(NSUInteger, QredoSecurityLevel) {
 
 @interface QredoClient :NSObject
 
+
+@property (readonly) QredoClientOptions *clientOptions;
 
 #pragma mark - Creating and managing a Qredo session
 
@@ -62,23 +85,43 @@ typedef NS_ENUM(NSUInteger, QredoSecurityLevel) {
  @see Connecting to Qredo: [Objective-C](https://docs.qredo.com/ios/objective-c/programming_guide/html/connecting_to_qredo/index.html),
  [Swift](https://docs.qredo.com/ios/swift/programming_guide/html/connecting_to_qredo/index.html)
  
- @param appSecret  a hex String supplied by Qredo. This is your API key for Qredo services.
+ @param appId  a hex String supplied by Qredo. This is your API key for Qredo services.
  @param appSecret  a hex String supplied by Qredo. This uniquely identifies your app to Qredo
  @param userId     a unique identifier for a user of the App, usually username or email address
  @param userSecret a password for the user of the App.
  
- @param completionhandler Returns the `QredoClient` object or an error.
+ @param completionHandler Returns the `QredoClient` object or an error.
  The `QredoClient` parameter will be nil if the app cannot be initialized. See the note above.
  The `NSError` parameter will be non nil if an error has occured: `error.code` contains `QredoErrorCodeUnknown` if the credentials are incorrect or if the app cannot be initialised due to a network error. `error.localizedDescription` includes more information about the error.
  
  
  */
 
-+(void)initializeWithAppId:(NSString*)appId
-                 appSecret:(NSString*)appSecret
-                    userId:(NSString*)userId
-                userSecret:(NSString*)userSecret
-         completionHandler:(void (^)(QredoClient *client, NSError *error))completionHandler;
++(void)initializeWithAppId:(NSString *)appId
+                 appSecret:(NSString *)appSecret
+                    userId:(NSString *)userId
+                userSecret:(NSString *)userSecret
+         completionHandler:(void (^)(QredoClient *client,NSError *error))completionHandler;
+
+
+
+
++(void)initializeWithAppId:(NSString *)appId
+                 appSecret:(NSString *)appSecret
+                    userId:(NSString *)userId
+                userSecret:(NSString *)userSecret
+                   options:(QredoClientOptions *)options
+         completionHandler:(void (^)(QredoClient *client,NSError *error))completionHandler;
+
+
+/** Init QredoClient from the values stored in the Keychain/UserDefaults - please see saveCredentialsInKeychain section below for security implications
+ */
+
++(void)initializeFromUserDefaultCredentialsInAppGroup:(NSString*)appGroup
+                                withCompletionHandler:(void (^)(QredoClient *client,NSError *error))completionHandler;
+
++(void)initializeFromKeychainCredentialsInGroup:(NSString*)keyChainGroup
+                                withCompletionHandler:(void (^)(QredoClient *client,NSError *error))completionHandler;
 
 
 /**
@@ -113,18 +156,17 @@ typedef NS_ENUM(NSUInteger, QredoSecurityLevel) {
  
  
  @param tagSecurityLevel Use [QredoSecurityLevel](../Enums/QredoSecurityLevel.html) (QREDO_HIGH_SECURITY or QREDO_MEDIUM_SECURITY), to define the Security Level of the generated tag
- @param completionhandler returns a `QredoRendezvous` or nil if an error occurs. `error.code` contains `QredoErrorCodeRendezvousUnknownResponse` if the the app has not been initialised, or there is no network connection. `error.localizedDescription` includes more information about the error.
+ @param completionHandler returns a `QredoRendezvous` or nil if an error occurs. `error.code` contains `QredoErrorCodeRendezvousUnknownResponse` if the the app has not been initialised, or there is no network connection. `error.localizedDescription` includes more information about the error.
  
  */
 
-
 -(void)createAnonymousRendezvousWithTagType:(QredoSecurityLevel)tagSecurityLevel
-                      completionHandler:(void (^)(QredoRendezvous *rendezvous, NSError *error))completionHandler;
+                          completionHandler:(void (^)(QredoRendezvous *rendezvous,NSError *error))completionHandler;
 
 
 
 /** Creates an anonymous rendezvous and generates a random tag with the specified security level. The duration and response count will be set to the values specified
-
+ 
  @note We recommend using a security level of QREDO_MEDIUM_SECURITY only for testing during development
  
  @see Creating a Rendezvous: [Objective-C](https://docs.qredo.com/ios/objective-c/programming_guide/html/rendezvous/creating_a_rendezvous.html),
@@ -135,24 +177,25 @@ typedef NS_ENUM(NSUInteger, QredoSecurityLevel) {
  @param duration the duration in seconds after which the Rendezvous will expire. Expired Rendezvous can no longer be responded to, but messages can still be sent within existing Conversations created from it. Expired Rendezvous can be reactivated by calling [activateRendezvousWithRef](#/c:objc(cs)QredoClient(im)deactivateRendezvousWithRef:completionHandler:)
  @param unlimitedResponses Set to YES if there can be an unlimited numbers of response to the Rendezvous. If the parameter is NO, then there can only be one response after which the Rendezvous will expire. Calling [activateRendezvousWithRef](#/c:objc(cs)QredoClient(im)deactivateRendezvousWithRef:completionHandler:)
  will set the response count to unlimited.
- @param completionhandler returns a `QredoRendezvous` or nil if an error occurs. `error.code` contains `QredoErrorCodeRendezvousUnknownResponse` if the the app has not been initialised, or there is no network connection. `error.localizedDescription` includes more information about the error.
+ @param summaryValues a dictionary of key/value pairs.
+ @param completionHandler returns a `QredoRendezvous` or nil if an error occurs. `error.code` contains `QredoErrorCodeRendezvousUnknownResponse` if the the app has not been initialised, or there is no network connection. `error.localizedDescription` includes more information about the error.
+ 
  
  */
-
 
 -(void)createAnonymousRendezvousWithTagType:(QredoSecurityLevel)tagSecurityLevel
                                    duration:(long)duration
                          unlimitedResponses:(BOOL)unlimitedResponses
-                          completionHandler:(void (^)(QredoRendezvous *rendezvous, NSError *error))completionHandler;
-
+                              summaryValues:(NSDictionary *)summaryValues
+                          completionHandler:(void (^)(QredoRendezvous *rendezvous,NSError *error))completionHandler;
 
 
 #pragma mark - Retrieving a Rendezvous
 
 /** Enumerates through all the Rendezvous created by the current app user passing the `QredoRendezvousMetadata` for each one.
  
- @param rendezvousMetadata The metadata for the current Rendezvous in the list. You can access the `QredoRendezvousRef` and tag from the metadata
- @param stop. Set this value to YES to stop the enumeration.
+ @param block rendezvousMetadata The metadata for the current Rendezvous in the list. You can access the `QredoRendezvousRef` and tag from the metadata
+              stop, set this value to YES to stop the enumeration.
  @param completionHandler error will be non nil if an error occurs.
  
  @see Retrieving a Rendezvous: [Objective-C](https://docs.qredo.com/ios/objective-c/programming_guide/html/rendezvous/listing_your_rendezvous.html)
@@ -160,7 +203,7 @@ typedef NS_ENUM(NSUInteger, QredoSecurityLevel) {
  
  */
 
--(void)enumerateRendezvousWithBlock:(void (^)(QredoRendezvousMetadata *rendezvousMetadata, BOOL *stop))block
+-(void)enumerateRendezvousWithBlock:(void (^)(QredoRendezvousMetadata *rendezvousMetadata,BOOL *stop))block
                   completionHandler:(void (^)(NSError *error))completionHandler;
 
 
@@ -178,7 +221,7 @@ typedef NS_ENUM(NSUInteger, QredoSecurityLevel) {
  */
 
 -(void)fetchRendezvousWithTag:(NSString *)tag
-            completionHandler:(void (^)(QredoRendezvous *rendezvous, NSError *error))completionHandler;
+            completionHandler:(void (^)(QredoRendezvous *rendezvous,NSError *error))completionHandler;
 
 
 
@@ -194,7 +237,7 @@ typedef NS_ENUM(NSUInteger, QredoSecurityLevel) {
  
  */
 -(void)fetchRendezvousWithRef:(QredoRendezvousRef *)ref
-               completionHandler:(void (^)(QredoRendezvous *rendezvous, NSError *error))completionHandler;
+            completionHandler:(void (^)(QredoRendezvous *rendezvous,NSError *error))completionHandler;
 
 
 /** Returns the QredoRendezvous with the specified `QredoRendezvousMetadata`
@@ -209,7 +252,7 @@ typedef NS_ENUM(NSUInteger, QredoSecurityLevel) {
  */
 
 -(void)fetchRendezvousWithMetadata:(QredoRendezvousMetadata *)metadata
-                 completionHandler:(void (^)(QredoRendezvous *rendezvous, NSError *error))completionHandler;
+                 completionHandler:(void (^)(QredoRendezvous *rendezvous,NSError *error))completionHandler;
 
 
 #pragma mark - Responding to a Rendezvous
@@ -225,7 +268,7 @@ typedef NS_ENUM(NSUInteger, QredoSecurityLevel) {
  */
 
 -(void)respondWithTag:(NSString *)tag
-    completionHandler:(void (^)(QredoConversation *conversation, NSError *error))completionHandler;
+    completionHandler:(void (^)(QredoConversation *conversation,NSError *error))completionHandler;
 
 
 #pragma mark - Activating and Deactivating a Rendezvous
@@ -236,25 +279,26 @@ typedef NS_ENUM(NSUInteger, QredoSecurityLevel) {
  
  @note This method can be called for any Rendezvous, irrespective of whether the Rendezvous has expired.
  
- @see Activating and Deactivating a Rendezvous: [Objective-C](https://docs.qredo.com/ios/objective-c/programming_guide/html/rendezvous/activating_and_deactivating_rendezvous.html),
- [Swift](https://docs.qredo.com/ios/swift/programming_guide/html/rendezvous/activating_and_deactivating_rendezvous.html)
+ @see Activating a Rendezvous: [Objective-C](https://docs.qredo.com/ios/objective-c/programming_guide/html/rendezvous/updating_rendezvous.html#activate),
+ [Swift](https://docs.qredo.com/ios/swift/programming_guide/html/rendezvous/updating_rendezvous.html#activate)
  
  
- @param tag The string representing the tag of the Rendezvous to respond to.
+ @param ref The QredoRendezvousRef representing the Rendezvous to respond to.
  @param completionHandler rendezvous will contain the activated Rendezvous or nil if an error occurs. error.code will contain `QredoErrorCodeRendezvousNotFound` if a Rendezvous with the specified `QredoRendezvousRef` cannot be found.
  
  
  */
--(void)activateRendezvousWithRef:(QredoRendezvousRef *)ref duration:(long)duration
-               completionHandler:(void (^)(QredoRendezvous *rendezvous, NSError *error))completionHandler;
+-(void)activateRendezvousWithRef:(QredoRendezvousRef *)ref
+                        duration:(long)duration
+               completionHandler:(void (^)(QredoRendezvous *rendezvous,NSError *error))completionHandler;
 
 /** Deactivates a Rendezvous.
  
  @note Existing conversations established with this Rendezvous will still be available and are NOT closed.
  New responses to the Rendezvous will fail. To accept new responses, activate the Rendezous again by calling `activateRendezvousWithRef`
  
- @see Activating and Deactivating a Rendezvous: [Objective-C](https://docs.qredo.com/ios/objective-c/programming_guide/html/rendezvous/activating_and_deactivating_rendezvous.html),
- [Swift](https://docs.qredo.com/ios/swift/programming_guide/html/rendezvous/activating_and_deactivating_rendezvous.html)
+ @see Deactivating a Rendezvous: [Objective-C](https://docs.qredo.com/ios/objective-c/programming_guide/html/rendezvous/updating_rendezvous.html#deactivate),
+ [Swift](https://docs.qredo.com/ios/swift/programming_guide/html/rendezvous/updating_rendezvous.html#deactivate)
  
  @param ref The `QredoRendezvousRef` for the Rendezvous to be deactivated
  @param completionHandler error will be non nil if an error occurs. error.code will be `QredoErrorCodeRendezvousNotFound` if a Rendezvous with the specified `QredoRendezvousRef` cannot be found.
@@ -276,12 +320,12 @@ typedef NS_ENUM(NSUInteger, QredoSecurityLevel) {
  @see Listing all Conversations: [Objective-C](https://docs.qredo.com/ios/objective-c/programming_guide/html/conversations/listing_all_conversations.html),
  [Swift](https://docs.qredo.com/ios/objective-c/programming_guide/html/conversations/listing_all_conversations.html)
  
- @param conversationMetadata The `QredoConversationMetadata` for the current Conversation being enumerated. The `QredoConversationRef` can be extracted from the metadata.
- @param stop Set to YES to stop the enumeration.
+ @param block   conversationMetadata The `QredoConversationMetadata` for the current Conversation being enumerated. The `QredoConversationRef` can be extracted from the metadata.
+                stop Set to YES to stop the enumeration.
  @param completionHandler error will be non nil if an error occurs, such as no network connection.
  
  */
--(void)enumerateConversationsWithBlock:(void (^)(QredoConversationMetadata *conversationMetadata, BOOL *stop))block
+-(void)enumerateConversationsWithBlock:(void (^)(QredoConversationMetadata *conversationMetadata,BOOL *stop))block
                      completionHandler:(void (^)(NSError *error))completionHandler;
 
 
@@ -293,7 +337,7 @@ typedef NS_ENUM(NSUInteger, QredoSecurityLevel) {
  */
 
 -(void)fetchConversationWithRef:(QredoConversationRef *)conversationRef
-              completionHandler:(void (^)(QredoConversation* conversation, NSError *error))completionHandler;
+              completionHandler:(void (^)(QredoConversation *conversation,NSError *error))completionHandler;
 
 
 /** This function is not currently implemented
@@ -345,7 +389,36 @@ typedef NS_ENUM(NSUInteger, QredoSecurityLevel) {
 /**
  @return the current Qredo network correctly DateTime - sync'd with NTP & TLS
  */
-+(NSDate*)dateTime;
++(NSDate *)dateTime;
+
+
+/** Store the QredoClient credentials into the iOS Keychain - this is essential if you need an iOS extension such as a Push Notification extension to decrypt incoming messages without
+    waiting for a hand off to the main App. It therefore allows unencrypted messages to be display on the lock screen. If this functionality is not required do not use this feature as
+    it weakens end point security
+    Once stored in the keychain, a QredoClient can be re-instantiated using
+    +(void)initializeFromKeychainCredentialsInGroup....
+    Configure the keyChainGroup in Capabilities>KeyChain Sharing, for both your App and Service Extension
+ */
+-(void)saveCredentialsInKeychain;
++(void)deleteCredentialsInKeychainGroup:(NSString*)keyChainGroup;
++(BOOL)hasCredentialsInKeychainGroup:(NSString*)keyChainGroup;
+
+
+
+/** Store the QredoClient credentials into the iOS UserDefaults dictionary - this is essential if you need an iOS extension such as a Push Notification extension to decrypt incoming messages without
+ waiting for a hand off to the main App. It therefore allows unencrypted messages to be display on the lock screen. If this functionality is not required do not use this feature as
+ it weakens end point security
+ Once stored in the keychain, a QredoClient can be re-instantiated using
+ +(void)initializeFromUserDefaultCredentialsInAppGroup....
+ Configure the UserDefaults App Group  in Capabilities>App Groups, for both your App and Service Extension
+ */
+-(void)saveCredentialsInUserDefaults;
++(BOOL)hasCredentialsInUserDefaultsAppGroup:(NSString*)appGroup;
++(void)deleteCredentialsInUserDefaultsAppGroup:(NSString*)appGroup;
 
 @end
+
+
+
+
 
